@@ -1,0 +1,33 @@
+{:paths ["src"]
+  :deps {
+         ;;bidi {:mvn/version "2.1.6"}
+;;         com.cemerick/piggieback {:mvn/version "0.2.2"}
+;;         com.taoensso/timbre {:mvn/version "4.10.0"}
+;;         macchiato/hiccups {:mvn/version "0.4.1"}
+;;         macchiato/core {:mvn/version "0.2.22"}
+;;         macchiato/env {:mvn/version "0.0.6"}
+;;         mount {:mvn/version "0.1.16"}
+;;         metosin/reitit {:mvn/version "0.5.15"}
+;;         metosin/spec-tools {:mvn/version "0.10.3"}
+;;         applied-science/js-interop {:mvn/version "0.3.1"}
+;;         kitchen-async/kitchen-async {:mvn/version "0.1.0-SNAPSHOT"}
+        lambdaisland/fetch {:mvn/version "1.0.41"}
+        thheller/shadow-cljs {:mvn/version "2.15.12"}
+        org.clojure/clojure {:mvn/version "1.10.3"}
+        org.clojure/clojurescript {:mvn/version "1.10.879"}
+        com.google.javascript/closure-compiler-unshaded {:mvn/version "v20210505"}
+        com.bhauman/figwheel-main {:mvn/version "0.2.15"}
+        instaparse/instaparse {:mvn/version "1.4.11"}
+        org.clojure/core.match {:mvn/version "1.0.0"}}
+  :aliases {:native-image
+             {:main-opts ["-m" "clj.native-image" "core"
+                          "--initialize-at-build-time"
+                        ;; optional native image name override
+                          "-H:Name=server.app"]
+              :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
+              :extra-deps
+              {clj.native-image/clj.native-image
+               {:git/url "https://github.com/taylorwood/clj.native-image.git"
+                :sha "7708e7fd4572459c81f6a6b8e44c96f41cdd92d4"}}}}
+}
+

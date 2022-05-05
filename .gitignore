@@ -1,0 +1,7 @@
+.lsp
+.shadow-cljs
+.clj-kondo
+classes
+node_modules
+.nrepl_port
+.cpcache
