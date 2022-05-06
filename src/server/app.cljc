@@ -10,13 +10,14 @@
   (ns server.app ( :require [instaparse.core :as insta]
                [clojure.core.match :refer [match]]
                [clojure.core :refer [re-matches slurp]]
-               [clojure.tools.cli :refer [parse-opts]]))
+               [clojure.tools.cli :refer [parse-opts]])
+               (:gen-class))
                      ;; [clojure.pprint :as pprint]
                )
   ;;#?(:cljs (:require-macros [cljs.core.match])))
 
 
-#?(:clj (defn readFileSync [p] (slurp (str (last (last p))))))
+#?(:clj (defn readFileSync [p] (slurp p)))
 
 (defn whitespace [q] #(str \< \# \" "\\s" q \" \>))
 (def w? (whitespace \?))
@@ -138,7 +139,7 @@
                                                                                                                                  (concat postfix (reverse stack)))))))))
     ))
 (defn -main [filepath]
-  ;;(println (str "Input filepath = " (last (last filepath))  ))
+  (println (str "Input filepath = " filepath ))
   (let 
    [input (readFileSync filepath #?(:cljs #js{:encoding "utf8"}))
     parser 
