@@ -1,0 +1,8 @@
+Building image for target platform: org.graalvm.nativeimage.Platform$MACOS_AMD64
+Using native toolchain:
+   Name: LLVM (clang)
+   Vendor: apple
+   Version: 13.1.6
+   Target architecture: x86_64
+   Path: /usr/bin/cc
+Using CLibrary: com.oracle.svm.core.c.libc.NoLibC

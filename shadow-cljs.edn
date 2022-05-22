@@ -2,13 +2,14 @@
  :deps true
   :nrepl {:host "0.0.0.0" :port 3333}
  :http {:host "0.0.0.0" :port 9630}
- :dev-http {8080 {:host "0.0.0.0" :roots ["target/" "assets/" "node_modules/antd/dist/"]}}
+ :dev-http {8080 {:host "0.0.0.0" :roots ["public" "target/" "assets/" "node_modules/antd/dist/"]}}
  :builds {:server {:target :node-script
                    :main server.app/-main
                    :output-to "target/out/server.js"
                    :devtools { :autoload true }}
           :client {:target :browser
-                    :modules {:main {:entries [client.core]
+                   :compiler-options {:reader-features #{:browser}}
+                    :modules {:main {:entries [server.app]
                                      :output-dir "public/app/js"
                                      :asset-path "/app/js"}}
                    :devtools {:autoload true}}}}
