@@ -30,22 +30,30 @@
 
 (defn optional [pattern] (str pattern \?))
 (def alphabet-pattern "[A-z0-9_]+")
+
 (def operator-pattern "('*'|'+'|'-')")
-(def operator-re "[\\*\\+\\-]")
-(def unary-negation-pattern "('*'|'+'|'-'|'(')'-'+")
+(def operator-re "[\\*\\+\\-\\(]")
+(def unary-negation-pattern "('*'|'+'|'-'|'(')'-'+") 
 (def letter-pattern "[A-z_]")
 (def natural-pattern "[1-9]")
 (def literal-pattern "-?([1-9]+[0-9]*)|0")
 
 (defn matches-pattern? [pattern] #(let
-                                   [matches (if (= 0 (count %)) nil (re-matches (re-pattern pattern) %))
+                                   [input (str %)
+                                    matches (if (= 0 (count input)) nil (re-matches (re-pattern pattern) input))
                                     something? (not (nil? matches))]
                                     something?))
 (def matches-literal? (matches-pattern? literal-pattern))
 (def matches-operator? (matches-pattern? operator-re))
 
 (defn re->gram [pattern] (str "#'" pattern "'"))
+(defn op-precedence [op] (match [op]
+                           ["*"] 2
+                           ["-"] 1
+                           ["+"] 1
+                           ["("] 0))
 
+(def sigma-pattern (str "('*'|'+'|'-'|'('|')'|" (re->gram alphabet-pattern)  ")"))
 (def w* " <#'\\s*'> ")
 (defn wrap-w* [t] (str w* t w*))
 ;; Grammar Spec, where <> denotes suppression from resulting AST
@@ -87,9 +95,16 @@
                   [_ true _ true] ["+"])))
       :else (concat acc [token]))))
 
+
 (defn process-unary [source]
-  (let [parse-unary (insta/parser unary-grammar)]
-    (butlast (reduce handle-negation [] (parse-unary (str "(" source ")"))))))
+  (let [parse-unary (insta/parser unary-grammar)
+        wrapped-src (if (and (= \( (first source)) (= \) (last source))) source (str "(" source ")"))
+        unary-ast (parse-unary wrapped-src)
+        left-parens (count (filter #(= % "(") unary-ast))
+        right-parens (count (filter #(= % ")") unary-ast))
+        trim-ast (cond (>= left-parens right-parens) (rest unary-ast) 
+                       (< left-parens right-parens) unary-ast)]
+    (butlast (reduce handle-negation [] trim-ast))))
 
 
 (defn convert-postfix [{:keys [stack postfix]} litOrOp]
@@ -97,24 +112,27 @@
     ["~"] (if (> (count postfix) 0) {:stack stack :postfix (concat postfix [-1 "*"])} {:stack (concat stack ["*"]) :postfix (concat postfix [-1])})
     ["("] {:stack (concat stack [litOrOp]) :postfix postfix}
     [")"] (let [popped (take-while #(not= "(" %) (reverse stack))
-                remaining (take-while #(not= "(" %) stack)]
+                remaining (if (= (last stack) "(") (butlast stack) (butlast (butlast (drop-while #(not= "(" %) stack))))]
             {:stack remaining :postfix (concat postfix popped)})
     :else (let [next-pf (concat postfix [litOrOp])
-                op-pf? (> (count next-pf) 1)
+                op-pf? (> (count (filter #(matches-literal? %) next-pf)) 1)
                 op-stack? (matches-operator? (last stack))
                 paren-stack? (not (nil? (some #(= "(" %) stack)))
+                has-precedence? #(<= (if op-stack? (op-precedence (last stack)) -1) (op-precedence litOrOp))
                 is-lit?  (matches-literal? litOrOp)
                 newStack (match [op-stack? op-pf? paren-stack? is-lit?]
                            [true true false true] (butlast stack)
-                           [true true false false] (concat (butlast stack) [litOrOp])
+                           [true true _ false] (if (has-precedence?) (concat (if (not= "(" (last stack)) (butlast stack) stack) [litOrOp]) stack)
                            [_ _ _ true] stack
-                           [_ _ _ false] (concat stack [litOrOp]))
+                           [_ _ _ false] (concat stack [litOrOp])
+                           :else (concat stack [litOrOp]))
                 newPostFix (match [op-stack? op-pf? paren-stack? is-lit?]
-                             [true true true false] (concat postfix [(last stack)])
+                             ;;[true true true false] 
                              [true true false true] (concat next-pf [(last stack)])
-                             [true true false false] next-pf
+                             [true true _ false] (if (has-precedence?) (if (not= "(" (last stack)) (concat postfix [(last stack)]) postfix) next-pf)
                              [_ _ _ true] next-pf
-                             [_ _ _ false] postfix)]
+                             [_ _ _ false] postfix
+                             :else postfix)]
             {:stack newStack :postfix newPostFix})))
 
 (defn reduce-postfix
@@ -125,7 +143,8 @@
                (concat postfix (reverse stack))))))
 (defn solve-postfix [s v] (let [digit? (integer? v)]
                             (if digit? (concat s [v])
-                                (concat (butlast (butlast s)) [(apply v [(last (butlast s)) (last s)])]))))
+                                (let [res (apply v [(last (butlast s)) (last s)])]
+                                  (concat (butlast (butlast s)) [res])))))
 (defn to-primitive [t] (let [token (str t)
                              digit? (matches-literal? token)]
                          (if digit? (str->int token)
@@ -142,30 +161,27 @@
 (defn resolve-all [vars exp-terms]
   (map (fn [et]
          (match et
-           [:Literal lit] (str->int lit)
-           [:Identifier id] (resolve-id vars id)
+           [:Literal & lit] (str->int (apply str lit))
+           [:Identifier & id] (resolve-id vars (apply str id))
            :else et)) exp-terms))
 (defn matcher [variable-map assignment]
   (match assignment
     [:Assignment [:Identifier & name] [:Literal & rest]] (assign-lit variable-map (apply str name) (apply str rest))
     [:Assignment [:Identifier & name] [:Identifier & id]] (assign-lit variable-map (apply str name) (resolve-id variable-map (apply str id)))
     [:Assignment [:Identifier & name] & r] (let [resolved-ids (apply str (resolve-all variable-map r))
-                                       
-                                               resolved-unary (process-unary resolved-ids)
-                                
-                                               postfix-transform (reduce-postfix resolved-unary)
-                                          
-                                               primitive-transform (map to-primitive postfix-transform)
-                                               result (first (reduce solve-postfix [] primitive-transform))]
-                                           (assign-lit variable-map (apply str name) result))))
+                                                 resolved-unary (process-unary resolved-ids)
+                                                 postfix-transform (reduce-postfix resolved-unary)
+                                                 primitive-transform (map to-primitive postfix-transform)
+                                                 result (first (reduce solve-postfix [] primitive-transform))]
+                                             (assign-lit variable-map (apply str name) result))))
 
 (def parser (insta/parser lang-grammar))
 
 (defn interpreter [source]
-  (let [AST (parser source) 
+  (let [AST (parser source)
         variables {}]
-    (cond 
-      (:reason AST) (str "Syntax Error: Expecting { " (apply str (drop 3 (reduce #(str %1 " or " (:expecting %2)) "" (:reason AST)))) " }") 
+    (cond
+      (:reason AST) (str "Syntax Error: Expecting { " (apply str (drop 3 (reduce #(str %1 " or " (:expecting %2)) "" (:reason AST)))) " }")
       :else (try (reduce matcher variables AST) #?(:clj (catch Throwable e (str e))
                                                    :cljs (catch :default e e))))))
 
@@ -184,14 +200,14 @@
                  [:div (str @output-state)]])))
 
 #?(:browser (defn -main [] (let [root (.getElementById js/document "root")] (rdom/render [app] root)))
-   :default (defn -main 
+   :default (defn -main
               ([] nil)
               ([filepath]
-              (let
-               [input (readFileSync filepath #?(:cljs #js{:encoding "utf8"}))
-                output (interpreter input)]
-                (if (string? output) 
-                  (println output)
-                (doseq [[id val] output] (println (str id " = " val))))))))
+               (let
+                [input (readFileSync filepath #?(:cljs #js{:encoding "utf8"}))
+                 output (interpreter input)]
+                 (if (string? output)
+                   (println output)
+                   (doseq [[id val] output] (println (str id " = " val))))))))
 
 #?(:browser (do (-main)))
