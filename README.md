@@ -8,11 +8,11 @@
 
 ### Using Native ARM Image (tested on M1 Mac)
 ```
-./toylangarm [source-file-path]
+./toylang-aarch64 [source-file-path]
 ```
 ### Using Native x86 Image (tested on AMD Ryzen)
 ```
-./toylangx86 [source-file-path]
+./toylang-x86 [source-file-path]
 ```
 ### Using Java (Requires JRE, tested on 11)
 ```
