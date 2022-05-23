@@ -1,5 +1,5 @@
-# Toy language 
-
+# Toy Language Project
+## Interpreter built in Clojure
 ## Ways to run programs (easiest to hardest):
 
 ### Using a browser: 
