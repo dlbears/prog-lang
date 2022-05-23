@@ -6,11 +6,11 @@
   - Try the [github page](https://dlbears.github.io/prog-lang/)
   - Download the repo locally and Open public/index.html in a web browser
 
-### Using Native ARM Image (tested on M1 Mac)
+### Using Native ARM Image (tested on ARM64 Linux VM)
 ```
 ./toylang-aarch64 [source-file-path]
 ```
-### Using Native x86 Image (tested on AMD Ryzen)
+### Using Native x86 Image (tested on AMD Linux PC)
 ```
 ./toylang-x86 [source-file-path]
 ```
