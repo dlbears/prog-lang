@@ -10,6 +10,7 @@
     "build:node": "shadow-cljs release :server",
     "build:uberjar": "clj -R:cambada -m cambada.uberjar",
     "build:native": "clj -M:native-image",
+    "build:js": "shadow-cljs release :server :client",
     "build:all": "npm run build:native && npm run build:uberjar && npm run build:browser && npm run build:node",
     "deploy:gh-pages": "gh-pages -d public"
   },

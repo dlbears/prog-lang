@@ -51,7 +51,8 @@
                            ["*"] 2
                            ["-"] 1
                            ["+"] 1
-                           ["("] 0))
+                           ["("] 0
+                           :else -1))
 
 (def sigma-pattern (str "('*'|'+'|'-'|'('|')'|" (re->gram alphabet-pattern)  ")"))
 (def w* " <#'\\s*'> ")
@@ -106,41 +107,33 @@
                        (< left-parens right-parens) unary-ast)]
     (butlast (reduce handle-negation [] trim-ast))))
 
-
-(defn convert-postfix [{:keys [stack postfix]} litOrOp]
-  (match [litOrOp]
-    ["~"] (if (> (count postfix) 0) {:stack stack :postfix (concat postfix [-1 "*"])} {:stack (concat stack ["*"]) :postfix (concat postfix [-1])})
-    ["("] {:stack (concat stack [litOrOp]) :postfix postfix}
-    [")"] (let [popped (take-while #(not= "(" %) (reverse stack))
-                remaining (if (= (last stack) "(") (butlast stack) (butlast (butlast (drop-while #(not= "(" %) stack))))]
-            {:stack remaining :postfix (concat postfix popped)})
-    :else (let [next-pf (concat postfix [litOrOp])
-                op-pf? (> (count (filter #(matches-literal? %) next-pf)) 1)
-                op-stack? (matches-operator? (last stack))
-                paren-stack? (not (nil? (some #(= "(" %) stack)))
-                has-precedence? #(<= (if op-stack? (op-precedence (last stack)) -1) (op-precedence litOrOp))
-                is-lit?  (matches-literal? litOrOp)
-                newStack (match [op-stack? op-pf? paren-stack? is-lit?]
-                           [true true false true] (butlast stack)
-                           [true true _ false] (if (has-precedence?) (concat (if (not= "(" (last stack)) (butlast stack) stack) [litOrOp]) stack)
-                           [_ _ _ true] stack
-                           [_ _ _ false] (concat stack [litOrOp])
-                           :else (concat stack [litOrOp]))
-                newPostFix (match [op-stack? op-pf? paren-stack? is-lit?]
-                             ;;[true true true false] 
-                             [true true false true] (concat next-pf [(last stack)])
-                             [true true _ false] (if (has-precedence?) (if (not= "(" (last stack)) (concat postfix [(last stack)]) postfix) next-pf)
-                             [_ _ _ true] next-pf
-                             [_ _ _ false] postfix
-                             :else postfix)]
-            {:stack newStack :postfix newPostFix})))
+(defn convert-postfix [{:keys [stack postfix]} token]
+  (let [literal? (matches-literal? token)]
+    (if literal? {:stack stack :postfix (concat postfix [token])}
+        (match [token]
+          ["~"] (if (> (count postfix) 0) {:stack stack :postfix (concat postfix [-1 "*"])} {:stack (concat stack ["*"]) :postfix (concat postfix [-1])})
+          ["("] {:stack (concat stack [token]) :postfix postfix}
+          [")"] (let [paren-cond #(and (not= "(" %) (not= "$" %))
+                      popped (take-while paren-cond (reverse stack))
+                      remaining (drop-last (inc (count popped)) stack)]
+                  {:stack remaining :postfix (concat postfix popped)})
+          :else (let [prec-stack (op-precedence (last stack))
+                      prec-token (op-precedence token)
+                      res (if (> prec-token prec-stack)
+                            {:stack (concat stack [token]) :postfix postfix}
+                            (let [prec-cond #(and (not= "$" %) (<= prec-token (op-precedence %)))
+                                  popped (take-while prec-cond (reverse stack))
+                                  remaining (drop-last (count popped) stack)]
+                              {:stack (concat remaining [token]) :postfix (concat postfix popped)}))]
+                  res)))))
 
 (defn reduce-postfix
-  ([input] (let
-            [{:keys [stack postfix]} (reduce convert-postfix {:stack [] :postfix []} input)]
-             (if (= 0 (count stack))
-               postfix
-               (concat postfix (reverse stack))))))
+  ([input]
+   (let
+    [{:keys [stack postfix]} (reduce convert-postfix {:stack ["$"] :postfix []} input)]
+     (if (= 0 (count stack))
+       postfix
+       (concat postfix (reverse (drop 1 stack)))))))
 (defn solve-postfix [s v] (let [digit? (integer? v)]
                             (if digit? (concat s [v])
                                 (let [res (apply v [(last (butlast s)) (last s)])]
@@ -197,7 +190,10 @@
                  [:button {:on-click #(reset! output-state (interpreter @input-state))} "Submit"]
                  [:div "Output: "]
                  [:br]
-                 [:div (str @output-state)]])))
+                 (let [output @output-state
+                       output-string? (string? output)]
+                   (if output-string? [:div output]
+                       (map (fn [[k v]] [:div (str k " = " v)]) (seq output))))])))
 
 #?(:browser (defn -main [] (let [root (.getElementById js/document "root")] (rdom/render [app] root)))
    :default (defn -main
