@@ -65,7 +65,7 @@
                     "<Root> = (S|Rest)*
                     <S> = Rest* Unary Rest+
                     Unary = " unary-negation-pattern "
-                    <Rest> = '('? " (wrap-w* (re->gram alphabet-pattern)) " ')'? " (wrap-w* (optional operator-pattern)) " Rest* "))
+                    <Rest> = '('* " (wrap-w* (re->gram alphabet-pattern)) " ')'* " (wrap-w* (optional operator-pattern)) " Rest* "))
 (defn handle-negation [acc token]
   (let [tokens-processed (count acc)
         start? (= 0 tokens-processed)]
@@ -89,7 +89,7 @@
 
 (defn process-unary [source]
   (let [parse-unary (insta/parser unary-grammar)]
-    (reduce handle-negation [] (parse-unary source))))
+    (butlast (reduce handle-negation [] (parse-unary (str "(" source ")"))))))
 
 
 (defn convert-postfix [{:keys [stack postfix]} litOrOp]
@@ -147,14 +147,17 @@
            :else et)) exp-terms))
 (defn matcher [variable-map assignment]
   (match assignment
-    [:Assignment [:Identifier name] [:Literal & rest]] (assign-lit variable-map name (apply str rest))
-    [:Assignment [:Identifier name] [:Identifier id]] (assign-lit variable-map name (resolve-id variable-map id))
-    [:Assignment [:Identifier name] & r] (let [resolved-ids (apply str (resolve-all variable-map r))
+    [:Assignment [:Identifier & name] [:Literal & rest]] (assign-lit variable-map (apply str name) (apply str rest))
+    [:Assignment [:Identifier & name] [:Identifier & id]] (assign-lit variable-map (apply str name) (resolve-id variable-map (apply str id)))
+    [:Assignment [:Identifier & name] & r] (let [resolved-ids (apply str (resolve-all variable-map r))
+                                       
                                                resolved-unary (process-unary resolved-ids)
+                                
                                                postfix-transform (reduce-postfix resolved-unary)
+                                          
                                                primitive-transform (map to-primitive postfix-transform)
                                                result (first (reduce solve-postfix [] primitive-transform))]
-                                           (assign-lit variable-map name result))))
+                                           (assign-lit variable-map (apply str name) result))))
 
 (def parser (insta/parser lang-grammar))
 
