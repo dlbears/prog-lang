@@ -27,7 +27,7 @@ node target/out/server.js [source-file-path]
 clj -M -m server.app [source-file-path]
 ```
 
-## Run Loacally (Browser)
+## Run Locally (Browser)
 #### Dependencies:
   - npm & nodejs (LTS)
   - clj (1.11+)
