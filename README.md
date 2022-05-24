@@ -36,6 +36,7 @@ clj -M -m server.app [source-file-path]
 npm install
 npm start
 ```
+#### Visit http://localhost:8080
 
 ## Build Locally (All Targets)
 #### Dependencies: 
